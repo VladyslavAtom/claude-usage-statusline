@@ -8,9 +8,7 @@ Real-time Claude API usage tracking for Claude Code's statusline with visual pro
 
 ## Preview
 
-```
-Opus 4.5 │ U:████░░░░░░  42% │ C:██░░░░░░░░  15% │ 2h34m
-```
+![Statusline Preview](assets/preview.png)
 
 ## Features
 
