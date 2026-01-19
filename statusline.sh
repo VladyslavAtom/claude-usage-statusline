@@ -142,4 +142,4 @@ CTX_BAR+="${RESET}"
 TIMER_COLOR=$(get_timer_color "$MINUTES_REMAINING")
 
 # Output with dual progress bars and emojis
-echo "🤖 ${MODEL} │ 🔋 ${API_BAR} ${USAGE_PCT}% │ 📊 ${CTX_BAR} ${CONTEXT_PCT}% │ ${TIMER_COLOR}⏱️ ${COUNTDOWN}${RESET}"
+echo "🤖 ${MODEL} │ 🔋 ${API_BAR} ${USAGE_PCT}% │ 📊 ${CTX_BAR} ${CONTEXT_PCT}% │ ${TIMER_COLOR}⏰ ${COUNTDOWN}${RESET}"
