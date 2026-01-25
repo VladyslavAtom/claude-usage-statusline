@@ -1,7 +1,6 @@
 # Claude Code Statusline - Usage Tracker (Linux)
 
 [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](https://www.linux.org/)
-[![Python 3.6+](https://img.shields.io/badge/Python-3.6+-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Real-time Claude API usage tracking for Claude Code's statusline with visual progress bars and color-coded gradients.
@@ -25,16 +24,29 @@ Real-time Claude API usage tracking for Claude Code's statusline with visual pro
 curl -fsSL https://raw.githubusercontent.com/VladyslavAtom/ClaudeUsageStatusLine/main/install.sh | bash
 ```
 
-This will:
-- Download scripts to `~/.claude/`
+The installer will prompt you to choose:
+
+| Method | Dependencies | Description |
+|--------|--------------|-------------|
+| **Binary** (Recommended) | `jq` only | Standalone executable, no Python needed |
+| **Python script** | `jq`, `python3`, `curl_cffi` | Smaller, easier to inspect/modify |
+
+Both methods will:
+- Install to `~/.claude/`
 - Prompt for your session key
 - Configure `~/.claude/settings.json`
 
 ## Requirements
 
+### Binary Installation (Recommended)
+- Linux x86_64
+- `jq` - JSON processor
+- Claude Pro or Max subscription
+
+### Python Installation
 - Linux (tested on Arch, Ubuntu, Debian)
 - `jq` - JSON processor
-- `python3` with `requests` library
+- `python3` with `curl_cffi` library
 - Claude Pro or Max subscription
 
 ## Manual Installation
@@ -50,16 +62,18 @@ cd ClaudeUsageStatusLine
 
 ```bash
 # Arch Linux
-sudo pacman -S jq python-requests
+sudo pacman -S jq
 
 # Ubuntu/Debian
-sudo apt install jq python3-requests
+sudo apt install jq
 
 # Fedora
-sudo dnf install jq python3-requests
+sudo dnf install jq
+```
 
-# Or via pip
-pip install requests
+For Python method, also install:
+```bash
+pip install curl_cffi
 ```
 
 ### 3. Get your Claude session key
@@ -80,8 +94,16 @@ chmod 600 ~/.claude-session-key
 
 ### 4. Install scripts
 
-Copy scripts to your Claude config directory:
+**Option A: Binary (download from releases)**
+```bash
+mkdir -p ~/.claude
+curl -fsSL https://github.com/VladyslavAtom/ClaudeUsageStatusLine/releases/latest/download/claude-usage -o ~/.claude/claude-usage
+chmod +x ~/.claude/claude-usage
+cp statusline.sh ~/.claude/
+chmod +x ~/.claude/statusline.sh
+```
 
+**Option B: Python script**
 ```bash
 cp statusline.sh fetch-usage.py ~/.claude/
 chmod +x ~/.claude/statusline.sh ~/.claude/fetch-usage.py
@@ -145,22 +167,37 @@ Cyan → Blue → Purple gradient as context fills up.
 └─────────────────┘                       │
                                           │ calls
                                           ▼
-                              ┌────────────────────┐
-                              │  fetch-usage.py    │
-                              │  (cached 60s)      │
-                              └──────────┬─────────┘
-                                         │
-                                         ▼
-                              ┌────────────────────┐
-                              │  claude.ai API     │
-                              │  /api/usage        │
-                              └────────────────────┘
+                          ┌───────────────────────────┐
+                          │  claude-usage (binary)    │
+                          │  or fetch-usage.py        │
+                          │  (cached 60s)             │
+                          └───────────┬───────────────┘
+                                      │
+                                      ▼
+                          ┌───────────────────────────┐
+                          │  claude.ai API            │
+                          │  /api/usage               │
+                          └───────────────────────────┘
 ```
 
 1. Claude Code sends session JSON to `statusline.sh` via stdin
 2. Script extracts model name and context window stats
-3. `fetch-usage.py` fetches API usage from claude.ai (cached for 60 seconds)
+3. `claude-usage` (or `fetch-usage.py`) fetches API usage from claude.ai (cached for 60 seconds)
 4. Renders colored progress bars with ANSI escape codes
+
+## Building from Source
+
+To build the binary yourself:
+
+```bash
+# Install build dependencies
+pip install -r requirements-dev.txt
+
+# Build
+make build
+
+# Binary will be at dist/claude-usage
+```
 
 ## Troubleshooting
 
@@ -174,10 +211,10 @@ Cyan → Blue → Purple gradient as context fills up.
 
 ```bash
 # Verify scripts are executable
-chmod +x statusline.sh fetch-usage.py
+chmod +x ~/.claude/statusline.sh
 
 # Test manually
-echo '{"model":{"display_name":"Test"},"context_window":{}}' | ./statusline.sh
+echo '{"model":{"display_name":"Test"},"context_window":{}}' | ~/.claude/statusline.sh
 ```
 
 ### Cache issues
@@ -186,10 +223,6 @@ echo '{"model":{"display_name":"Test"},"context_window":{}}' | ./statusline.sh
 # Clear the usage cache
 rm /tmp/claude_usage_cache_$USER
 ```
-
-## Why Python instead of Swift?
-
-The [original macOS version](https://github.com/hamed-elfayome/Claude-Code-Statusline-Usage-Tracker-MacOS) uses Swift with native `URLSession` for browser-like TLS fingerprinting to bypass Cloudflare detection. On Linux, Python's `requests` library works reliably with the claude.ai API when using proper headers and session cookies.
 
 ## Credits
 

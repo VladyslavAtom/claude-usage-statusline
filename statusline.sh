@@ -13,19 +13,31 @@ CONTEXT_PCT=${CONTEXT_PCT:-0}
 CACHE_FILE="/tmp/claude_usage_cache_${USER}"
 CACHE_AGE=60
 
-# Get script directory for finding fetch-usage.py
+# Get script directory for finding fetch executable
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Determine which executable to use (binary preferred over Python)
+FETCH_CMD=""
+if [ -x "${SCRIPT_DIR}/claude-usage" ]; then
+    FETCH_CMD="${SCRIPT_DIR}/claude-usage"
+elif [ -x "${SCRIPT_DIR}/fetch-usage.py" ]; then
+    FETCH_CMD="${SCRIPT_DIR}/fetch-usage.py"
+fi
 
 # Check if cache exists and is fresh (Linux-compatible stat command)
 if [ -f "$CACHE_FILE" ] && [ $(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0))) -lt $CACHE_AGE ]; then
     USAGE_DATA=$(cat "$CACHE_FILE")
 else
     # Try to fetch fresh usage data
-    USAGE_DATA=$("${SCRIPT_DIR}/fetch-usage.py" 2>/dev/null)
-    if [ $? -eq 0 ] && [ -n "$USAGE_DATA" ]; then
-        echo "$USAGE_DATA" > "$CACHE_FILE"
+    if [ -n "$FETCH_CMD" ]; then
+        USAGE_DATA=$("$FETCH_CMD" 2>/dev/null)
+        if [ $? -eq 0 ] && [ -n "$USAGE_DATA" ]; then
+            echo "$USAGE_DATA" > "$CACHE_FILE"
+        else
+            USAGE_DATA="0|-1"
+        fi
     else
-        # Fallback if fetch fails
+        # No executable found
         USAGE_DATA="0|-1"
     fi
 fi
