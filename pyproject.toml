@@ -1,6 +1,6 @@
 [project]
 name = "claude-usage-status"
-version = "1.0.0"
+version = "0.0.0"  # actual version in fetch-usage.py
 description = "Claude Usage Status Fetcher - Retrieves usage data from Claude API"
 requires-python = ">=3.10"
 dependencies = [

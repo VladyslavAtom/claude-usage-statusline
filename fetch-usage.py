@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Claude Usage Status Fetcher - Retrieves usage data from Claude API."""
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 from curl_cffi import requests
 import sys
@@ -11,6 +11,9 @@ from datetime import datetime
 SESSION_KEY_FILE = os.path.expanduser("~/.claude-session-key")
 
 def main():
+    if len(sys.argv) > 1 and sys.argv[1] in ('-v', '-V', '--version'):
+        print(f"claude-usage {__version__}")
+        sys.exit(0)
     try:
         with open(SESSION_KEY_FILE) as f:
             session_key = f.read().strip()
