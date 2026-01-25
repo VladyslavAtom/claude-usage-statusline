@@ -21,29 +21,45 @@ echo
 
 # Check dependencies
 check_deps() {
-    local missing=()
+    local missing_sys=()
+    local missing_pip=false
 
     if ! command -v jq &>/dev/null; then
-        missing+=("jq")
+        missing_sys+=("jq")
     fi
 
     if ! command -v python3 &>/dev/null; then
-        missing+=("python3")
+        missing_sys+=("python3")
     fi
 
-    if ! python3 -c "import requests" &>/dev/null 2>&1; then
-        missing+=("python-requests")
+    if ! python3 -c "from curl_cffi import requests" &>/dev/null 2>&1; then
+        missing_pip=true
     fi
 
-    if [ ${#missing[@]} -gt 0 ]; then
-        echo "Missing dependencies: ${missing[*]}"
+    if [ ${#missing_sys[@]} -gt 0 ] || $missing_pip; then
+        echo "Missing dependencies:"
+        [ ${#missing_sys[@]} -gt 0 ] && echo "  System: ${missing_sys[*]}"
+        $missing_pip && echo "  Python: curl_cffi"
         echo
-        echo "Install them with:"
-        echo "  Arch:   sudo pacman -S ${missing[*]}"
-        echo "  Ubuntu: sudo apt install ${missing[*]}"
-        echo "  Fedora: sudo dnf install ${missing[*]}"
-        echo "  pip:    pip install requests"
-        echo
+
+        if [ ${#missing_sys[@]} -gt 0 ]; then
+            echo "Install system packages:"
+            echo "  Arch:   sudo pacman -S ${missing_sys[*]}"
+            echo "  Ubuntu: sudo apt install ${missing_sys[*]}"
+            echo "  Fedora: sudo dnf install ${missing_sys[*]}"
+            echo
+        fi
+
+        if $missing_pip; then
+            echo "Install Python package:"
+            if $LOCAL_MODE && [ -f "$SCRIPT_DIR/requirements.txt" ]; then
+                echo "  pip install -r $SCRIPT_DIR/requirements.txt"
+            else
+                echo "  pip install curl_cffi"
+            fi
+            echo
+        fi
+
         read -p "Continue anyway? [y/N] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then

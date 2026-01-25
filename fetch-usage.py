@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-import requests
+"""Claude Usage Status Fetcher - Retrieves usage data from Claude API."""
+
+__version__ = "1.0.0"
+
+from curl_cffi import requests
 import sys
 import os
 from datetime import datetime
