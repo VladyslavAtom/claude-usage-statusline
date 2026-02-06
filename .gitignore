@@ -1,6 +1,13 @@
 .idea/
 .venv/
+venv/
+env/
+.env
 build/
 dist/
 __pycache__/
+*.pyc
 *.egg-info/
+*.pem
+*.key
+.DS_Store
