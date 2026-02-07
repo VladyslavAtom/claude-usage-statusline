@@ -9,23 +9,26 @@ input=$(cat)
 IFS='|' read -r MODEL CONTEXT_PCT <<< $(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')
 CONTEXT_PCT=${CONTEXT_PCT:-0}
 
-# Read effort level from Claude settings
-EFFORT_LEVEL=$(jq -r '.effortLevel // "medium"' ~/.claude/settings.json 2>/dev/null)
-E_ON=$'\033[38;5;168m'
-E_OFF=$'\033[38;5;239m'
-B="▎"
-case "$EFFORT_LEVEL" in
-    low)    EFFORT_BARS="${E_ON}${B}${E_OFF}${B}${B}" ;;
-    high)   EFFORT_BARS="${E_ON}${B}${B}${B}" ;;
-    *)      EFFORT_BARS="${E_ON}${B}${B}${E_OFF}${B}" ;;
-esac
+# Effort level and fast mode only apply to 4.6+ models
+EFFORT_BARS=""
+FAST_ICON=""
+if echo "$MODEL" | grep -qE '4\.6|4\.[7-9]|[5-9]\.[0-9]'; then
+    # Read effort level from Claude settings
+    EFFORT_LEVEL=$(jq -r '.effortLevel // "medium"' ~/.claude/settings.json 2>/dev/null)
+    E_ON=$'\033[38;5;168m'
+    E_OFF=$'\033[38;5;239m'
+    B="▎"
+    case "$EFFORT_LEVEL" in
+        low)    EFFORT_BARS="${E_ON}${B}${E_OFF}${B}${B}" ;;
+        high)   EFFORT_BARS="${E_ON}${B}${B}${B}" ;;
+        *)      EFFORT_BARS="${E_ON}${B}${B}${E_OFF}${B}" ;;
+    esac
 
-# Fast mode indicator
-FAST_MODE=$(jq -r '.fastMode // false' ~/.claude/settings.json 2>/dev/null)
-if [ "$FAST_MODE" = "true" ]; then
-    FAST_ICON=$'\033[38;5;208m⚡'
-else
-    FAST_ICON=""
+    # Fast mode indicator
+    FAST_MODE=$(jq -r '.fastMode // false' ~/.claude/settings.json 2>/dev/null)
+    if [ "$FAST_MODE" = "true" ]; then
+        FAST_ICON=$'\033[38;5;208m⚡'
+    fi
 fi
 
 # Fetch real usage from Claude API (cached for 60 seconds)
@@ -166,4 +169,4 @@ USAGE_FMT=$(printf "%3d" "$USAGE_PCT")
 CTX_FMT=$(printf "%3d" "$CONTEXT_PCT")
 
 # Output: compact format with thin separators
-printf '%s\n' "${EFFORT_BARS}${RESET} ${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${API_BAR_COLOR}U:${API_BAR} ${USAGE_FMT}%${RESET} │ ${CTX_BAR_COLOR}C:${CTX_BAR} ${CTX_FMT}%${RESET} │ ${TIMER_COLOR}${COUNTDOWN}${RESET}"
+printf '%s\n' "${EFFORT_BARS:+${EFFORT_BARS}${RESET} }${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${API_BAR_COLOR}U:${API_BAR} ${USAGE_FMT}%${RESET} │ ${CTX_BAR_COLOR}C:${CTX_BAR} ${CTX_FMT}%${RESET} │ ${TIMER_COLOR}${COUNTDOWN}${RESET}"
