@@ -7,7 +7,7 @@ Real-time Claude API usage tracking for Claude Code's statusline with visual pro
 
 ## Preview
 
-![Statusline Preview](assets/preview.png)
+![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=2)
 
 ## Features
 
