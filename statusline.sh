@@ -9,12 +9,19 @@ input=$(cat)
 IFS='|' read -r MODEL CONTEXT_PCT <<< $(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')
 CONTEXT_PCT=${CONTEXT_PCT:-0}
 
+# Get config directory (from env or script location)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$SCRIPT_DIR}"
+SETTINGS_FILE="${CLAUDE_CONFIG_DIR}/settings.json"
+# Fall back to default ~/.claude/settings.json if profile dir has no settings
+[ -f "$SETTINGS_FILE" ] || SETTINGS_FILE="$HOME/.claude/settings.json"
+
 # Effort level and fast mode only apply to 4.6+ models
 EFFORT_BARS=""
 FAST_ICON=""
 if echo "$MODEL" | grep -qE '4\.6|4\.[7-9]|[5-9]\.[0-9]'; then
     # Read effort level from Claude settings
-    EFFORT_LEVEL=$(jq -r '.effortLevel // "medium"' ~/.claude/settings.json 2>/dev/null)
+    EFFORT_LEVEL=$(jq -r '.effortLevel // "high"' "$SETTINGS_FILE" 2>/dev/null)
     E_ON=$'\033[38;5;168m'
     E_OFF=$'\033[38;5;239m'
     B="▎"
@@ -25,16 +32,13 @@ if echo "$MODEL" | grep -qE '4\.6|4\.[7-9]|[5-9]\.[0-9]'; then
     esac
 
     # Fast mode indicator
-    FAST_MODE=$(jq -r '.fastMode // false' ~/.claude/settings.json 2>/dev/null)
+    FAST_MODE=$(jq -r '.fastMode // false' "$SETTINGS_FILE" 2>/dev/null)
     if [ "$FAST_MODE" = "true" ]; then
         FAST_ICON=$'\033[38;5;208m⚡'
     fi
 fi
 
 # Fetch real usage from Claude API (cached for 60 seconds)
-# Get config directory (from env or script location)
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CLAUDE_CONFIG_DIR="${CLAUDE_CONFIG_DIR:-$SCRIPT_DIR}"
 
 # Cache file includes config dir hash to avoid conflicts between profiles
 CONFIG_HASH=$(echo -n "$CLAUDE_CONFIG_DIR" | md5sum | cut -c1-8)
