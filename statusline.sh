@@ -43,7 +43,7 @@ fi
 # Cache file includes config dir hash to avoid conflicts between profiles
 CONFIG_HASH=$(echo -n "$CLAUDE_CONFIG_DIR" | md5sum | cut -c1-8)
 CACHE_FILE="/tmp/claude_usage_cache_${USER}_${CONFIG_HASH}"
-CACHE_AGE=60
+CACHE_AGE=300
 
 # Determine which executable to use (binary preferred over Python)
 FETCH_CMD=""
@@ -62,6 +62,9 @@ else
         USAGE_DATA=$(CLAUDE_CONFIG_DIR="$CLAUDE_CONFIG_DIR" "$FETCH_CMD" 2>/dev/null)
         if [ $? -eq 0 ] && [ -n "$USAGE_DATA" ]; then
             echo "$USAGE_DATA" > "$CACHE_FILE"
+        elif [ -f "$CACHE_FILE" ]; then
+            # Fetch failed — use stale cache rather than showing nothing
+            USAGE_DATA=$(cat "$CACHE_FILE")
         else
             USAGE_DATA="0|-1"
         fi
