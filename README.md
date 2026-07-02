@@ -87,9 +87,7 @@ Organization selection priority:
 
 Enterprise orgs have no 5h/7d rate windows — usage is billed as spend. The statusline detects this automatically and switches to a spend view:
 
-```
-▎▎▎▎▎ Fable 5 │ $ ▆ 63% ·$148/$400 │ org $3009/mo · $0/$25k Sep 02 │ C ▃ 37%
-```
+![Enterprise Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview-enterprise.png?v=1)
 
 | Component | Description |
 |-----------|-------------|
