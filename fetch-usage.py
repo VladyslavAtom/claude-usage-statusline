@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Claude Usage Status Fetcher - Retrieves usage data from Claude API."""
 
-__version__ = "1.3.0"
+__version__ = "1.5.0"
 
 from curl_cffi import requests
 import sys
@@ -65,7 +65,46 @@ def main():
             sys.exit(1)
 
         usage = usage_resp.json()
-        five_hour = usage.get('five_hour', {})
+
+        # Enterprise orgs have no 5h/7d rate windows (five_hour is null) —
+        # usage is spend-based: personal extra-usage credits + org-wide budget.
+        if usage.get('five_hour') is None:
+            spend = usage.get('spend') or {}
+            spend_used = (spend.get('used') or {}).get('amount_minor', 0)
+            spend_limit = (spend.get('limit') or {}).get('amount_minor', 0)
+            spend_pct = spend.get('percent')
+            if spend_pct is None:
+                spend_pct = int(spend_used * 100 / spend_limit) if spend_limit else 0
+
+            # Org-wide monthly overage spend — the real money meter for
+            # enterprise; regular seat usage lands here, not in amber_ladder
+            ov_used = -1
+            ov_limit = 0
+            try:
+                ov_resp = session.get(f'https://claude.ai/api/organizations/{org_id}/overage_spend_limit', timeout=5)
+                if ov_resp.status_code == 200:
+                    ov = ov_resp.json()
+                    ov_used = int(ov.get('used_credits') or 0)
+                    ov_limit = int(ov.get('monthly_credit_limit') or 0)
+            except Exception:
+                pass
+
+            # amber_ladder: contract credit pool ($ limit with a period reset),
+            # shown as reference info next to the live overage number
+            amber = usage.get('amber_ladder') or {}
+            amber_used = int(amber.get('used_dollars') or 0)
+            amber_limit = int(amber.get('limit_dollars') or 0)
+            amber_resets_at = amber.get('resets_at')
+            if amber_resets_at:
+                amber_dt = datetime.fromisoformat(amber_resets_at.replace('Z', '+00:00'))
+                amber_reset = amber_dt.astimezone().strftime('%b %d')
+            else:
+                amber_reset = '-'
+
+            print(f"E|{int(spend_pct)}|{spend_used}|{spend_limit}|{ov_used}|{ov_limit}|{amber_used}|{amber_limit}|{amber_reset}")
+            return
+
+        five_hour = usage.get('five_hour') or {}
         utilization = five_hour.get('utilization', 0)
         resets_at = five_hour.get('resets_at', '')
 
@@ -79,16 +118,18 @@ def main():
             minutes_remaining = -1  # Unknown
 
         # Weekly limit
-        seven_day = usage.get('seven_day', {})
+        seven_day = usage.get('seven_day') or {}
         week_utilization = seven_day.get('utilization', 0)
         week_resets_at = seven_day.get('resets_at', '')
         if week_resets_at:
             week_dt = datetime.fromisoformat(week_resets_at.replace('Z', '+00:00'))
             week_reset = week_dt.astimezone().strftime('%a %H:%M')
+            week_minutes_remaining = max(0, int((week_dt - datetime.now(week_dt.tzinfo)).total_seconds() / 60))
         else:
             week_reset = '-'  # Unknown
+            week_minutes_remaining = -1
 
-        print(f"{int(utilization)}|{minutes_remaining}|{int(week_utilization)}|{week_reset}")
+        print(f"{int(utilization)}|{minutes_remaining}|{int(week_utilization)}|{week_reset}|{week_minutes_remaining}")
 
     except requests.exceptions.RequestException as e:
         print(f"ERROR:{e}", file=sys.stderr)
