@@ -7,7 +7,7 @@ Real-time Claude API usage tracking for Claude Code's statusline: battery-style 
 
 ## Preview
 
-![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=4)
+![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=5)
 
 ## Features
 
