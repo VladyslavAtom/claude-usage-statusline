@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Claude Usage Status Fetcher - Retrieves usage data from Claude API."""
 
-__version__ = "1.1.0"
+__version__ = "1.3.0"
 
 from curl_cffi import requests
 import sys
@@ -12,14 +12,13 @@ def get_config_dir():
     """Get Claude config directory from CLAUDE_CONFIG_DIR env or default."""
     return os.path.expanduser(os.environ.get('CLAUDE_CONFIG_DIR', '~/.claude'))
 
-SESSION_KEY_FILE = os.path.join(get_config_dir(), 'claude-session-key')
-
 def main():
     if len(sys.argv) > 1 and sys.argv[1] in ('-v', '-V', '--version'):
         print(f"claude-usage {__version__}")
         sys.exit(0)
+    session_key_file = os.path.join(get_config_dir(), 'claude-session-key')
     try:
-        with open(SESSION_KEY_FILE) as f:
+        with open(session_key_file) as f:
             session_key = f.read().strip()
     except FileNotFoundError:
         print("ERROR:No session key file", file=sys.stderr)
@@ -72,14 +71,24 @@ def main():
 
         # Calculate minutes remaining until reset
         if resets_at:
-            dt = datetime.fromisoformat(resets_at.replace('+00:00', '+00:00'))
+            dt = datetime.fromisoformat(resets_at.replace('Z', '+00:00'))
             now = datetime.now(dt.tzinfo)
             delta = dt - now
             minutes_remaining = max(0, int(delta.total_seconds() / 60))
         else:
             minutes_remaining = -1  # Unknown
 
-        print(f"{int(utilization)}|{minutes_remaining}")
+        # Weekly limit
+        seven_day = usage.get('seven_day', {})
+        week_utilization = seven_day.get('utilization', 0)
+        week_resets_at = seven_day.get('resets_at', '')
+        if week_resets_at:
+            week_dt = datetime.fromisoformat(week_resets_at.replace('Z', '+00:00'))
+            week_reset = week_dt.astimezone().strftime('%a %H:%M')
+        else:
+            week_reset = '-'  # Unknown
+
+        print(f"{int(utilization)}|{minutes_remaining}|{int(week_utilization)}|{week_reset}")
 
     except requests.exceptions.RequestException as e:
         print(f"ERROR:{e}", file=sys.stderr)
