@@ -7,15 +7,17 @@ Real-time Claude API usage tracking for Claude Code's statusline with visual pro
 
 ## Preview
 
-![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=2)
+![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=3)
 
 ## Features
 
-- **Real-time Usage Tracking** - 10-block visual progress bar for API usage
+- **Real-time Usage Tracking** - compact mini-gauges for the 5-hour and weekly limits
+- **Weekly Limit** - utilization plus the exact reset day and time
 - **Context Window Monitor** - Track how much context you've consumed
-- **Reset Countdown** - Know exactly when your usage window resets
+- **Reset Countdown** - Know exactly when your 5-hour window resets
+- **Effort & Fast Mode Indicators** - current effort level (5 steps) and fast mode
 - **Color Gradients** - Visual feedback from green (low) to red (high)
-- **60-second Cache** - Minimizes API calls while staying current
+- **5-minute Cache** - Minimizes API calls while staying current
 - **Multiple Profiles** - Support for separate work/personal configurations
 - **Team/Enterprise Support** - Auto-detects organization with Claude Code access
 - **Local Processing** - All data stays on your machine
@@ -167,26 +169,34 @@ Add to `~/.claude/settings.json`:
 
 ## Display Format
 
+```
+▎▎▎▎▎ Fable 5 ⚡ │ 5h ▃ 37% ·2h35m │ 7d ▅ 55% ·Fri 21:00 │ C ▄ 42%
+```
+
 | Component | Description |
 |-----------|-------------|
-| Model | Current Claude model (Opus 4.5, Sonnet 4, etc.) |
-| U: | API usage percentage (5-hour rolling window) |
-| C: | Context window consumption |
-| Timer | Time until usage limit resets |
+| ▎▎▎▎▎ | Effort level (low / medium / high / xhigh / max) |
+| Model | Current Claude model |
+| ⚡ | Fast mode enabled |
+| 5h | 5-hour limit: mini-gauge, percentage, time until reset |
+| 7d | Weekly limit: mini-gauge, percentage, reset day and time |
+| C | Context window consumption |
+
+Each metric gets a single-character gauge (▁▂▃▄▅▆▇█ — 8 fill steps) colored by the gradient below.
 
 ## Color Coding
 
-### API Usage (U:)
+### Limits (5h / 7d)
 
 | Usage | Color |
 |-------|-------|
-| 0-10% | Dark green |
-| 11-30% | Green |
-| 31-50% | Yellow-green |
-| 51-70% | Orange |
-| 71-100% | Red |
+| 0-20% | Green |
+| 21-50% | Yellow-green |
+| 51-70% | Yellow |
+| 71-90% | Orange |
+| 91-100% | Red |
 
-### Context Window (C:)
+### Context Window (C)
 
 Cyan → Blue → Purple gradient as context fills up.
 
@@ -214,7 +224,7 @@ Cyan → Blue → Purple gradient as context fills up.
                           ┌───────────────────────────┐
                           │  claude-usage (binary)    │
                           │  or fetch-usage.py        │
-                          │  (cached 60s)             │
+                          │  (cached 5 min)           │
                           └───────────┬───────────────┘
                                       │
                                       ▼
@@ -226,8 +236,8 @@ Cyan → Blue → Purple gradient as context fills up.
 
 1. Claude Code sends session JSON to `statusline.sh` via stdin
 2. Script extracts model name and context window stats
-3. `claude-usage` (or `fetch-usage.py`) fetches API usage from claude.ai (cached for 60 seconds)
-4. Renders colored progress bars with ANSI escape codes
+3. `claude-usage` (or `fetch-usage.py`) fetches API usage from claude.ai (cached for 5 minutes)
+4. Renders colored mini-gauges with ANSI escape codes
 
 ## Configuration Files
 
@@ -280,7 +290,7 @@ echo '{"model":{"display_name":"Test"},"context_window":{}}' | ~/.claude/statusl
 
 ```bash
 # Clear all usage caches
-rm /tmp/claude_usage_cache_${USER}_*
+rm "${XDG_RUNTIME_DIR:-$HOME/.cache}"/claude_usage_cache_*
 ```
 
 ## Credits
