@@ -4,13 +4,24 @@ on:
   push:
     tags:
       - 'v*'
+  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            asset: claude-usage-linux-x86_64
+          - os: macos-latest
+            asset: claude-usage-darwin-arm64
+          - os: macos-15-intel
+            asset: claude-usage-darwin-x86_64
+    runs-on: ${{ matrix.os }}
 
     steps:
       - name: Checkout code
@@ -29,6 +40,41 @@ jobs:
           uv sync --group dev
           uv run pyinstaller --clean fetch-usage.spec
           chmod +x dist/claude-usage
+          mv dist/claude-usage dist/${{ matrix.asset }}
+
+      - name: Smoke test
+        run: |
+          dist/${{ matrix.asset }} --version
+          mkdir -p smoke
+          cp statusline.sh smoke/
+          cp dist/${{ matrix.asset }} smoke/claude-usage
+          chmod +x smoke/statusline.sh
+          out=$(echo '{"model":{"display_name":"Test Model"},"context_window":{"used_percentage":42}}' | CLAUDE_CONFIG_DIR="$PWD/smoke" smoke/statusline.sh)
+          echo "$out"
+          echo "$out" | grep -q "Test Model"
+          echo "$out" | grep -q "58%"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: dist/${{ matrix.asset }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Prepare assets
+        run: |
+          chmod +x dist/*
+          # Legacy name, kept for installers and docs that predate per-platform assets
+          cp dist/claude-usage-linux-x86_64 dist/claude-usage
 
       - name: Get version from tag
         id: version
@@ -40,15 +86,17 @@ jobs:
           name: Release ${{ steps.version.outputs.VERSION }}
           draft: false
           prerelease: false
-          files: |
-            dist/claude-usage
+          files: dist/*
           body: |
             ## Claude Usage Status Line ${{ steps.version.outputs.VERSION }}
 
             ### Installation
             ```bash
-            curl -fsSL https://raw.githubusercontent.com/VladyslavAtom/ClaudeUsageStatusLine/main/install.sh | bash
+            bash <(curl -fsSL https://raw.githubusercontent.com/VladyslavAtom/ClaudeUsageStatusLine/main/install.sh)
             ```
 
             ### Assets
-            - `claude-usage` - Standalone Linux x86_64 binary (no Python required)
+            - `claude-usage-linux-x86_64` - Linux x86_64
+            - `claude-usage-darwin-arm64` - macOS Apple Silicon
+            - `claude-usage-darwin-x86_64` - macOS Intel
+            - `claude-usage` - same as `claude-usage-linux-x86_64` (legacy name)

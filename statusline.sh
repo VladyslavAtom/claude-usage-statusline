@@ -1,12 +1,12 @@
 #!/bin/bash
-# Claude Code Statusline Usage Tracker (Linux-adapted version)
+# Claude Code Statusline Usage Tracker (Linux and macOS)
 # Original: https://github.com/hamed-elfayome/Claude-Code-Statusline-Usage-Tracker-MacOS
 
 export LC_NUMERIC=C
 input=$(cat)
 
 # Parse JSON values (pipe-delimited to handle spaces in model name)
-IFS='|' read -r MODEL CONTEXT_PCT <<< $(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')
+IFS='|' read -r MODEL CONTEXT_PCT <<< "$(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')"
 CONTEXT_PCT=${CONTEXT_PCT:-0}
 
 # Get config directory (from env or script location)
@@ -42,7 +42,7 @@ fi
 
 # Cache file includes config dir hash to avoid conflicts between profiles.
 # Stored in a user-owned dir (not /tmp) to avoid predictable-name/symlink issues.
-CONFIG_HASH=$(echo -n "$CLAUDE_CONFIG_DIR" | md5sum | cut -c1-8)
+CONFIG_HASH=$(printf '%s' "$CLAUDE_CONFIG_DIR" | cksum | cut -d' ' -f1)
 CACHE_DIR="${XDG_RUNTIME_DIR:-$HOME/.cache}"
 mkdir -p "$CACHE_DIR" 2>/dev/null
 CACHE_FILE="${CACHE_DIR}/claude_usage_cache_${CONFIG_HASH}"
@@ -56,8 +56,8 @@ elif [ -x "${SCRIPT_DIR}/fetch-usage.py" ]; then
     FETCH_CMD="${SCRIPT_DIR}/fetch-usage.py"
 fi
 
-# Check if cache exists and is fresh (Linux-compatible stat command)
-if [ -f "$CACHE_FILE" ] && [ $(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || echo 0))) -lt $CACHE_AGE ]; then
+# Check if cache exists and is fresh (GNU stat -c, BSD/macOS stat -f)
+if [ -f "$CACHE_FILE" ] && [ $(($(date +%s) - $(stat -c %Y "$CACHE_FILE" 2>/dev/null || stat -f %m "$CACHE_FILE" 2>/dev/null || echo 0))) -lt $CACHE_AGE ]; then
     USAGE_DATA=$(cat "$CACHE_FILE")
 else
     # Try to fetch fresh usage data

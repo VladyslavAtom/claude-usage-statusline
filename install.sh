@@ -18,6 +18,24 @@ fi
 # Installation method: binary or python
 INSTALL_METHOD=""
 
+# Prompts read from the terminal: under `curl | bash` stdin is the script itself.
+# No terminal (CI, cron) -> empty answer, defaults apply.
+ask() {
+    REPLY=""
+    if : 2>/dev/null </dev/tty; then
+        read "$@" </dev/tty || true
+    fi
+}
+
+# Release asset for this platform, empty if no prebuilt binary
+binary_asset() {
+    case "$(uname -s)-$(uname -m)" in
+        Linux-x86_64)  echo "claude-usage-linux-x86_64" ;;
+        Darwin-arm64)  echo "claude-usage-darwin-arm64" ;;
+        Darwin-x86_64) echo "claude-usage-darwin-x86_64" ;;
+    esac
+}
+
 echo "=== Claude Usage Statusline Installer ==="
 echo "    Target directory: $CLAUDE_DIR"
 if $LOCAL_MODE; then
@@ -37,8 +55,13 @@ choose_install_method() {
     echo "      - Requires Python 3 and curl_cffi package"
     echo "      - Smaller download, easier to inspect/modify"
     echo
-    read -p "Enter choice [1/2] (default: 1): " choice
-    case "$choice" in
+    if [ -z "$(binary_asset)" ]; then
+        echo "No prebuilt binary for $(uname -s) $(uname -m), using Python method"
+        INSTALL_METHOD="python"
+        return
+    fi
+    ask -r -p "Enter choice [1/2] (default: 1): "
+    case "$REPLY" in
         2) INSTALL_METHOD="python" ;;
         *) INSTALL_METHOD="binary" ;;
     esac
@@ -67,7 +90,7 @@ check_python_deps() {
         echo "  pip install curl_cffi"
         echo "  # or with uv: uv pip install curl_cffi"
         echo
-        read -p "Continue anyway? [y/N] " -n 1 -r
+        ask -p "Continue anyway? [y/N] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
@@ -86,8 +109,9 @@ check_common_deps() {
         echo "  Arch:   sudo pacman -S jq"
         echo "  Ubuntu: sudo apt install jq"
         echo "  Fedora: sudo dnf install jq"
+        echo "  macOS:  brew install jq"
         echo
-        read -p "Continue anyway? [y/N] " -n 1 -r
+        ask -p "Continue anyway? [y/N] " -n 1 -r
         echo
         if [[ ! $REPLY =~ ^[Yy]$ ]]; then
             exit 1
@@ -106,7 +130,7 @@ install_binary() {
         cp "$SCRIPT_DIR/dist/claude-usage" "$binary_path"
     else
         echo "Downloading binary from GitHub releases..."
-        if ! curl -fsSL "$RELEASE_URL/claude-usage" -o "$binary_path"; then
+        if ! curl -fsSL "$RELEASE_URL/$(binary_asset)" -o "$binary_path"; then
             echo "ERROR: Failed to download binary"
             echo "The binary may not be available yet. Try Python method instead."
             exit 1
@@ -166,7 +190,8 @@ setup_session_key() {
     echo "  2. Open Developer Tools (F12) -> Application -> Cookies"
     echo "  3. Copy the 'sessionKey' value"
     echo
-    read -p "Paste your session key (or press Enter to skip): " session_key
+    ask -r -p "Paste your session key (or press Enter to skip): "
+    local session_key="$REPLY"
 
     if [ -n "$session_key" ]; then
         echo "$session_key" > "$key_file"
@@ -182,35 +207,40 @@ update_settings() {
     local settings_file="$CLAUDE_DIR/settings.json"
     local script_path="$CLAUDE_DIR/statusline.sh"
 
-    if [ -f "$settings_file" ]; then
-        if grep -q '"statusline"' "$settings_file"; then
-            echo "statusline already configured in $settings_file"
-            echo "  Verify it points to: $script_path"
-            return
-        fi
-
-        # Add statusline to existing settings
-        if command -v jq &>/dev/null; then
-            local tmp=$(mktemp)
-            jq --arg script "$script_path" '. + {"statusline": {"script": $script}}' "$settings_file" > "$tmp"
-            mv "$tmp" "$settings_file"
-            echo "Updated $settings_file"
-        else
-            echo "Cannot update settings (jq not available)"
-            echo "  Add manually to $settings_file:"
-            echo '  "statusline": {"script": "'"$script_path"'"}'
-        fi
-    else
-        # Create new settings file
+    if [ ! -f "$settings_file" ]; then
         cat > "$settings_file" << EOF
 {
-  "statusline": {
-    "script": "$script_path"
+  "statusLine": {
+    "type": "command",
+    "command": "$script_path"
   }
 }
 EOF
         echo "Created $settings_file"
+        return
     fi
+
+    if ! command -v jq &>/dev/null; then
+        echo "Cannot update settings (jq not available)"
+        echo "  Add manually to $settings_file:"
+        echo '  "statusLine": {"type": "command", "command": "'"$script_path"'"}'
+        return
+    fi
+
+    local current
+    current=$(jq -r '.statusLine.command // empty' "$settings_file")
+    if [ -n "$current" ] && [ "$current" != "$script_path" ]; then
+        echo "statusLine already configured in $settings_file: $current"
+        echo "  To use this statusline, point it to: $script_path"
+        return
+    fi
+
+    # "statusline" (lowercase) was written by older versions of this installer; Claude Code ignores it
+    local tmp
+    tmp=$(mktemp)
+    jq --arg script "$script_path" 'del(.statusline) | .statusLine = {"type": "command", "command": $script}' "$settings_file" > "$tmp"
+    cat "$tmp" > "$settings_file" && rm -f "$tmp"
+    echo "Updated $settings_file"
 }
 
 # Main
