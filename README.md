@@ -1,6 +1,7 @@
-# Claude Code Statusline - Usage Tracker (Linux)
+# Claude Code Statusline - Usage Tracker (Linux, macOS)
 
 [![Linux](https://img.shields.io/badge/Linux-FCC624?logo=linux&logoColor=black)](https://www.linux.org/)
+[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](https://www.apple.com/macos/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 Real-time Claude API usage tracking for Claude Code's statusline: battery-style gauges that drain as you spend your limits, plus pace chevrons that tell you whether you're burning through them faster or slower than the window itself.
@@ -26,7 +27,7 @@ Real-time Claude API usage tracking for Claude Code's statusline: battery-style 
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/VladyslavAtom/ClaudeUsageStatusLine/main/install.sh | bash
+bash <(curl -fsSL https://raw.githubusercontent.com/VladyslavAtom/ClaudeUsageStatusLine/main/install.sh)
 ```
 
 The installer will prompt you to choose:
@@ -100,12 +101,12 @@ Note: per-member spend breakdown exists in the API (`overage_spend_limits`) but 
 ## Requirements
 
 ### Binary Installation (Recommended)
-- Linux x86_64
+- Linux x86_64, macOS (Apple Silicon or Intel)
 - `jq` - JSON processor
 - Claude Pro, Max, or Team subscription
 
 ### Python Installation
-- Linux (tested on Arch, Ubuntu, Debian)
+- Linux (tested on Arch, Ubuntu, Debian) or macOS
 - `jq` - JSON processor
 - `python3` with `curl_cffi` library
 - Claude Pro, Max, or Team subscription
@@ -130,6 +131,9 @@ sudo apt install jq
 
 # Fedora
 sudo dnf install jq
+
+# macOS (preinstalled on macOS 15+)
+brew install jq
 ```
 
 For Python method, also install:
@@ -156,9 +160,11 @@ chmod 600 ~/.claude/claude-session-key
 ### 4. Install scripts
 
 **Option A: Binary (download from releases)**
+
+Pick the asset for your platform: `claude-usage-linux-x86_64`, `claude-usage-darwin-arm64` (Apple Silicon), `claude-usage-darwin-x86_64` (Intel Mac).
 ```bash
 mkdir -p ~/.claude
-curl -fsSL https://github.com/VladyslavAtom/ClaudeUsageStatusLine/releases/latest/download/claude-usage -o ~/.claude/claude-usage
+curl -fsSL https://github.com/VladyslavAtom/ClaudeUsageStatusLine/releases/latest/download/claude-usage-linux-x86_64 -o ~/.claude/claude-usage
 chmod +x ~/.claude/claude-usage
 cp statusline.sh ~/.claude/
 chmod +x ~/.claude/statusline.sh
@@ -176,8 +182,9 @@ Add to `~/.claude/settings.json`:
 
 ```json
 {
-  "statusline": {
-    "script": "~/.claude/statusline.sh"
+  "statusLine": {
+    "type": "command",
+    "command": "~/.claude/statusline.sh"
   }
 }
 ```

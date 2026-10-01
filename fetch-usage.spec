@@ -1,5 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec file for claude-usage binary."""
+import sys
+
+# strip/UPX break the macOS code signature PyInstaller applies
+LINUX = sys.platform.startswith("linux")
 
 a = Analysis(
     ['fetch-usage.py'],
@@ -29,8 +33,8 @@ exe = EXE(
     name='claude-usage',
     debug=False,
     bootloader_ignore_signals=False,
-    strip=True,
-    upx=True,
+    strip=LINUX,
+    upx=LINUX,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=True,
