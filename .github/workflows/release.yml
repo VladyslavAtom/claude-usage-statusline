@@ -49,9 +49,10 @@ jobs:
           cp statusline.sh smoke/
           cp dist/${{ matrix.asset }} smoke/claude-usage
           chmod +x smoke/statusline.sh
-          out=$(echo '{"model":{"display_name":"Test"},"context_window":{"used_percentage":42}}' | CLAUDE_CONFIG_DIR="$PWD/smoke" smoke/statusline.sh)
+          out=$(echo '{"model":{"display_name":"Test Model"},"context_window":{"used_percentage":42}}' | CLAUDE_CONFIG_DIR="$PWD/smoke" smoke/statusline.sh)
           echo "$out"
-          echo "$out" | grep -q '58%'
+          echo "$out" | grep -q "Test Model"
+          echo "$out" | grep -q "58%"
 
       - uses: actions/upload-artifact@v4
         with:

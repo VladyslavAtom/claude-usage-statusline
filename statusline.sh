@@ -6,7 +6,7 @@ export LC_NUMERIC=C
 input=$(cat)
 
 # Parse JSON values (pipe-delimited to handle spaces in model name)
-IFS='|' read -r MODEL CONTEXT_PCT <<< $(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')
+IFS='|' read -r MODEL CONTEXT_PCT <<< "$(echo "$input" | jq -r '[.model.display_name, (.context_window.used_percentage // 0 | floor)] | join("|")')"
 CONTEXT_PCT=${CONTEXT_PCT:-0}
 
 # Get config directory (from env or script location)
