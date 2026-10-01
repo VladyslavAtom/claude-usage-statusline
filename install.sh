@@ -231,8 +231,13 @@ EOF
     current=$(jq -r '.statusLine.command // empty' "$settings_file")
     if [ -n "$current" ] && [ "$current" != "$script_path" ]; then
         echo "statusLine already configured in $settings_file: $current"
-        echo "  To use this statusline, point it to: $script_path"
-        return
+        ask -p "Replace it with $script_path? [y/N] " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            echo "  Kept. To use this statusline later, point statusLine.command to: $script_path"
+            return
+        fi
+        echo "  Previous command (to restore): $current"
     fi
 
     # "statusline" (lowercase) was written by older versions of this installer; Claude Code ignores it
