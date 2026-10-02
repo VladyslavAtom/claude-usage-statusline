@@ -6,6 +6,8 @@
 
 Real-time Claude API usage tracking for Claude Code's statusline: battery-style gauges that drain as you spend your limits, plus pace chevrons that tell you whether you're burning through them faster or slower than the window itself.
 
+> **Terminal only.** The statusline shows up only when you run `claude` in a terminal (macOS Terminal, iTerm2, any Linux terminal). The Claude desktop app (including its Code tab) and the VS Code / Cursor extension panel do not support custom statuslines and silently ignore this setting.
+
 ## Preview
 
 ![Statusline Preview](https://raw.githubusercontent.com/VladyslavAtom/claude-usage-statusline/refs/heads/main/assets/preview.png?v=5)
@@ -99,6 +101,8 @@ Enterprise orgs have no 5h/7d rate windows — usage is billed as spend. The sta
 Note: per-member spend breakdown exists in the API (`overage_spend_limits`) but requires the `billing:view` permission, so a regular seat only sees org-wide totals.
 
 ## Requirements
+
+Claude Code CLI (`claude` run in a terminal), not the desktop app or the VS Code / Cursor extension panel.
 
 ### Binary Installation (Recommended)
 - Linux x86_64, macOS (Apple Silicon or Intel)
@@ -311,6 +315,10 @@ make build
 - **Expired session key**: Get a fresh `sessionKey` from claude.ai cookies
 - **Network issues**: Check if you can reach claude.ai
 - **File permissions**: Ensure `~/.claude/claude-session-key` is readable
+
+### Statusline not visible
+
+Make sure you run `claude` in a terminal. The desktop app and the VS Code / Cursor extension panel never show it.
 
 ### Script not running
 
