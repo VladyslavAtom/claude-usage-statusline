@@ -261,11 +261,46 @@ API_LEFT=$(( 100 - USAGE_PCT ))
 WEEK_LEFT=$(( 100 - WEEK_PCT ))
 CTX_FREE=$(( 100 - CONTEXT_PCT ))
 
-# Elapsed share of each rate window (5h = 300 min, 7d = 10080 min); -1 = unknown
-API_ELAPSED=-1
-[ "$MINUTES_REMAINING" -ge 0 ] && API_ELAPSED=$(( (300 - MINUTES_REMAINING) * 100 / 300 ))
-WEEK_ELAPSED=-1
-[ "$WEEK_MINUTES_REMAINING" -ge 0 ] && WEEK_ELAPSED=$(( (10080 - WEEK_MINUTES_REMAINING) * 100 / 10080 ))
+# Pace ignores night hours (00:00-09:00 local) by default: you are asleep, so that
+# time should not make the arrows redder. Disable: STATUSLINE_PACE_SKIP_NIGHT=0.
+PACE_SKIP_NIGHT="${STATUSLINE_PACE_SKIP_NIGHT:-1}"
+NIGHT_END_HOUR=9
+
+# Seconds of night (00:00-NIGHT_END_HOUR local) inside [$1, $2] (epoch seconds).
+# DST shifts of an hour are ignored.
+night_secs_between() {
+    local s=$1 e=$2 now h m sec mid d ns ne lo hi total=0
+    now=$(date +%s)
+    read -r h m sec <<< "$(date '+%H %M %S')"
+    mid=$(( now - (10#$h * 3600 + 10#$m * 60 + 10#$sec) ))
+    for d in $(seq -8 8); do
+        ns=$(( mid + d * 86400 ))
+        ne=$(( ns + NIGHT_END_HOUR * 3600 ))
+        lo=$(( s > ns ? s : ns ))
+        hi=$(( e < ne ? e : ne ))
+        [ $hi -gt $lo ] && total=$(( total + hi - lo ))
+    done
+    echo $total
+}
+
+# Elapsed share (%) of a rate window; -1 = unknown. Args: window minutes, minutes remaining.
+window_elapsed_pct() {
+    local total_min=$1 rem=$2
+    if [ "$rem" -lt 0 ]; then echo -1; return; fi
+    local raw=$(( (total_min - rem) * 100 / total_min ))
+    if [ "$PACE_SKIP_NIGHT" != "1" ]; then echo $raw; return; fi
+    local now s e total el
+    now=$(date +%s)
+    s=$(( now - (total_min - rem) * 60 ))
+    e=$(( now + rem * 60 ))
+    total=$(( total_min * 60 - $(night_secs_between "$s" "$e") ))
+    el=$(( (now - s) - $(night_secs_between "$s" "$now") ))
+    if [ $total -le 0 ]; then echo $raw; else echo $(( el * 100 / total )); fi
+}
+
+# Elapsed share of each rate window (5h = 300 min, 7d = 10080 min)
+API_ELAPSED=$(window_elapsed_pct 300 "$MINUTES_REMAINING")
+WEEK_ELAPSED=$(window_elapsed_pct 10080 "$WEEK_MINUTES_REMAINING")
 
 API_COLOR=$(get_charge_color "$API_LEFT")
 API_GAUGE=$(gauge_char "$API_LEFT")

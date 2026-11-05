@@ -224,6 +224,8 @@ The arrow after each limit compares how much you've spent against how much of th
 
 During the first ~5% of a window the ratio is too noisy, so the arrow stays at `−`. The 7d arrow needs the fetcher v1.4+ (it adds minutes-until-weekly-reset to the output); with older cached data it gracefully shows `−`.
 
+By default night hours (00:00-09:00 local time) are excluded from the elapsed time, so sleeping doesn't turn the arrows red. Set `STATUSLINE_PACE_SKIP_NIGHT=0` to count the whole window.
+
 ## Color Coding
 
 ### Limit Charge (5h / 7d)
@@ -293,6 +295,7 @@ All configuration is stored in `$CLAUDE_CONFIG_DIR` (default: `~/.claude`):
 
 Environment variables:
 - `CLAUDE_CONFIG_DIR` - Override config directory (default: `~/.claude`)
+- `STATUSLINE_PACE_SKIP_NIGHT` - `1` (default) ignores 00:00-09:00 local time in the pace arrows, `0` counts the whole window
 
 ## Building from Source
 
