@@ -213,54 +213,6 @@ gauge_char() {
     echo "${GAUGE_CHARS:$idx:1}"
 }
 
-# Enterprise (spend-based) view: no 5h/7d windows — personal extra-usage
-# credits as the main battery, org-wide budget dimmed for reference
-if $ENTERPRISE; then
-    IFS='|' read -r -a EF <<< "$USAGE_DATA"
-    SPEND_PCT=${EF[1]}; SPEND_USED=${EF[2]}; SPEND_LIMIT=${EF[3]}
-    if [ ${#EF[@]} -ge 9 ]; then
-        OV_USED=${EF[4]}; OV_LIMIT=${EF[5]}
-        AMBER_USED=${EF[6]}; AMBER_LIMIT=${EF[7]}; AMBER_RESET=${EF[8]}
-    else
-        # First-revision E format (no overage fields): E|pct|used|limit|org_pct|org_used|org_limit|reset
-        OV_USED=-1; OV_LIMIT=0
-        AMBER_USED=${EF[5]}; AMBER_LIMIT=${EF[6]}; AMBER_RESET=${EF[7]}
-    fi
-
-    SPEND_LEFT=$(( 100 - SPEND_PCT ))
-    SPEND_COLOR=$(get_charge_color "$SPEND_LEFT")
-    SPEND_GAUGE=$(gauge_char "$SPEND_LEFT")
-    # spend amounts come in minor units (cents)
-    SPEND_USED_USD=$(( SPEND_USED / 100 ))
-    SPEND_LIMIT_USD=$(( SPEND_LIMIT / 100 ))
-
-    fmt_k() { if [ "$1" -ge 1000 ]; then echo "$(( $1 / 1000 ))k"; else echo "$1"; fi; }
-
-    # Org block: live monthly overage spend first, contract credit pool as reference
-    ORG_INFO=""
-    if [ "$OV_USED" -ge 0 ]; then
-        if [ "$OV_LIMIT" -gt 0 ]; then
-            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo"
-        else
-            ORG_INFO="\$$(( OV_USED / 100 ))/mo"
-        fi
-        ORG_INFO+=" · "
-    fi
-    ORG_INFO+="\$$(fmt_k "$AMBER_USED")/\$$(fmt_k "$AMBER_LIMIT") ${AMBER_RESET}"
-
-    CTX_FREE=$(( 100 - CONTEXT_PCT ))
-    CTX_COLOR=$(get_ctx_charge_color "$CTX_FREE")
-    CTX_GAUGE=$(gauge_char "$CTX_FREE")
-
-    printf '%s\n' "${EFFORT_BARS:+${EFFORT_BARS}${RESET} }${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${DIM}\$${RESET} ${SPEND_COLOR}${SPEND_GAUGE} ${SPEND_LEFT}%${RESET} ${DIM}·\$${SPEND_USED_USD}/\$${SPEND_LIMIT_USD}${RESET} │ ${DIM}org ${ORG_INFO}${RESET} │ ${DIM}C${RESET} ${CTX_COLOR}${CTX_GAUGE} ${CTX_FREE}%${RESET}"
-    exit 0
-fi
-
-# Battery view: gauges show what's LEFT, draining from full/green to empty/red
-API_LEFT=$(( 100 - USAGE_PCT ))
-WEEK_LEFT=$(( 100 - WEEK_PCT ))
-CTX_FREE=$(( 100 - CONTEXT_PCT ))
-
 # Pace ignores night hours (00:00-09:00 local) by default: you are asleep, so that
 # time should not make the arrows redder. Disable: STATUSLINE_PACE_SKIP_NIGHT=0.
 PACE_SKIP_NIGHT="${STATUSLINE_PACE_SKIP_NIGHT:-1}"
@@ -297,6 +249,73 @@ window_elapsed_pct() {
     el=$(( (now - s) - $(night_secs_between "$s" "$now") ))
     if [ $total -le 0 ]; then echo $raw; else echo $(( el * 100 / total )); fi
 }
+
+# Minutes remaining in the current calendar month (local time) and the month length.
+# Sets MONTH_TOTAL_MIN and MONTH_REMAINING_MIN.
+month_window() {
+    local y mo d h mi sec dim
+    read -r y mo d h mi sec <<< "$(date '+%Y %m %d %H %M %S')"
+    y=$((10#$y)); mo=$((10#$mo))
+    case $mo in
+        1|3|5|7|8|10|12) dim=31 ;;
+        4|6|9|11) dim=30 ;;
+        *) if [ $(( y % 4 )) -eq 0 ] && { [ $(( y % 100 )) -ne 0 ] || [ $(( y % 400 )) -eq 0 ]; }; then dim=29; else dim=28; fi ;;
+    esac
+    MONTH_TOTAL_MIN=$(( dim * 1440 ))
+    MONTH_REMAINING_MIN=$(( MONTH_TOTAL_MIN - ((10#$d - 1) * 1440 + 10#$h * 60 + 10#$mi) ))
+}
+
+# Enterprise (spend-based) view: no 5h/7d windows — personal extra-usage
+# credits as the main battery, org-wide budget dimmed for reference
+if $ENTERPRISE; then
+    IFS='|' read -r -a EF <<< "$USAGE_DATA"
+    SPEND_PCT=${EF[1]}; SPEND_USED=${EF[2]}; SPEND_LIMIT=${EF[3]}
+    if [ ${#EF[@]} -ge 9 ]; then
+        OV_USED=${EF[4]}; OV_LIMIT=${EF[5]}
+        AMBER_USED=${EF[6]}; AMBER_LIMIT=${EF[7]}; AMBER_RESET=${EF[8]}
+    else
+        # First-revision E format (no overage fields): E|pct|used|limit|org_pct|org_used|org_limit|reset
+        OV_USED=-1; OV_LIMIT=0
+        AMBER_USED=${EF[5]}; AMBER_LIMIT=${EF[6]}; AMBER_RESET=${EF[7]}
+    fi
+
+    SPEND_LEFT=$(( 100 - SPEND_PCT ))
+    SPEND_COLOR=$(get_charge_color "$SPEND_LEFT")
+    SPEND_GAUGE=$(gauge_char "$SPEND_LEFT")
+    # Pace vs share of the calendar month elapsed
+    month_window
+    MONTH_ELAPSED=$(window_elapsed_pct "$MONTH_TOTAL_MIN" "$MONTH_REMAINING_MIN")
+    SPEND_PACE=$(get_pace_arrow "$SPEND_PCT" "$MONTH_ELAPSED")
+    # spend amounts come in minor units (cents)
+    SPEND_USED_USD=$(( SPEND_USED / 100 ))
+    SPEND_LIMIT_USD=$(( SPEND_LIMIT / 100 ))
+
+    fmt_k() { if [ "$1" -ge 1000 ]; then echo "$(( $1 / 1000 ))k"; else echo "$1"; fi; }
+
+    # Org block: live monthly overage spend first, contract credit pool as reference
+    ORG_INFO=""
+    if [ "$OV_USED" -ge 0 ]; then
+        if [ "$OV_LIMIT" -gt 0 ]; then
+            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo $(get_pace_arrow $(( OV_USED * 100 / OV_LIMIT )) "$MONTH_ELAPSED")${DIM}"
+        else
+            ORG_INFO="\$$(( OV_USED / 100 ))/mo"
+        fi
+        ORG_INFO+=" · "
+    fi
+    ORG_INFO+="\$$(fmt_k "$AMBER_USED")/\$$(fmt_k "$AMBER_LIMIT") ${AMBER_RESET}"
+
+    CTX_FREE=$(( 100 - CONTEXT_PCT ))
+    CTX_COLOR=$(get_ctx_charge_color "$CTX_FREE")
+    CTX_GAUGE=$(gauge_char "$CTX_FREE")
+
+    printf '%s\n' "${EFFORT_BARS:+${EFFORT_BARS}${RESET} }${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${DIM}\$${RESET} ${SPEND_COLOR}${SPEND_GAUGE} ${SPEND_LEFT}%${RESET} ${SPEND_PACE}${RESET} ${DIM}·\$${SPEND_USED_USD}/\$${SPEND_LIMIT_USD}${RESET} │ ${DIM}org ${ORG_INFO}${RESET} │ ${DIM}C${RESET} ${CTX_COLOR}${CTX_GAUGE} ${CTX_FREE}%${RESET}"
+    exit 0
+fi
+
+# Battery view: gauges show what's LEFT, draining from full/green to empty/red
+API_LEFT=$(( 100 - USAGE_PCT ))
+WEEK_LEFT=$(( 100 - WEEK_PCT ))
+CTX_FREE=$(( 100 - CONTEXT_PCT ))
 
 # Elapsed share of each rate window (5h = 300 min, 7d = 10080 min)
 API_ELAPSED=$(window_elapsed_pct 300 "$MINUTES_REMAINING")

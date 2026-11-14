@@ -94,9 +94,11 @@ Enterprise orgs have no 5h/7d rate windows — usage is billed as spend. The sta
 
 | Component | Description |
 |-----------|-------------|
-| $ | Personal extra-usage credits: remaining charge, spent/limit dollars |
-| org | Org-wide spend (dimmed, informational): live monthly overage spend (from `overage_spend_limit`, with `/limit` when the org has a monthly cap), then the contract credit pool with its reset date |
+| $ | Personal extra-usage credits: remaining charge, pace arrow, spent/limit dollars |
+| org | Org-wide spend (dimmed, informational): live monthly overage spend (from `overage_spend_limit`, with `/limit` and a pace arrow when the org has a monthly cap), then the contract credit pool with its reset date |
 | C | Context window, same as the regular view |
+
+The window here is the calendar month (local time): the arrows compare the share of budget spent with the share of the month elapsed, same scale and night-hours rule as [Pace Arrows](#pace-arrows).
 
 Note: per-member spend breakdown exists in the API (`overage_spend_limits`) but requires the `billing:view` permission, so a regular seat only sees org-wide totals.
 
