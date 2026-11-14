@@ -159,7 +159,7 @@ get_ctx_charge_color() {
 #   ↓  1.2 - 1.5     a bit over pace
 #   ⇊  ratio > 1.5   slow down
 get_pace_arrow() {
-    local used_pct=$1 elapsed_pct=$2
+    local used_pct=$1 elapsed_pct=$2 ok_color=${3:-$'\033[38;5;245m'}
     # Unknown window position, or too early in the window for a stable ratio
     if [ "$elapsed_pct" -lt 5 ]; then
         echo $'\033[38;5;245m−'
@@ -171,7 +171,7 @@ get_pace_arrow() {
     elif [ $ratio -lt 80 ]; then
         echo $'\033[38;5;76m↑'
     elif [ $ratio -le 120 ]; then
-        echo $'\033[38;5;245m−'
+        echo "${ok_color}−"
     elif [ $ratio -le 150 ]; then
         echo $'\033[38;5;208m↓'
     else
@@ -285,7 +285,7 @@ if $ENTERPRISE; then
     # Pace vs share of the calendar month elapsed
     month_window
     MONTH_ELAPSED=$(window_elapsed_pct "$MONTH_TOTAL_MIN" "$MONTH_REMAINING_MIN")
-    SPEND_PACE=$(get_pace_arrow "$SPEND_PCT" "$MONTH_ELAPSED")
+    SPEND_PACE=$(get_pace_arrow "$SPEND_PCT" "$MONTH_ELAPSED" $'\033[38;5;34m')
     # spend amounts come in minor units (cents)
     SPEND_USED_USD=$(( SPEND_USED / 100 ))
     SPEND_LIMIT_USD=$(( SPEND_LIMIT / 100 ))
@@ -296,7 +296,7 @@ if $ENTERPRISE; then
     ORG_INFO=""
     if [ "$OV_USED" -ge 0 ]; then
         if [ "$OV_LIMIT" -gt 0 ]; then
-            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo $(get_pace_arrow $(( OV_USED * 100 / OV_LIMIT )) "$MONTH_ELAPSED")${DIM}"
+            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo $(get_pace_arrow $(( OV_USED * 100 / OV_LIMIT )) "$MONTH_ELAPSED" $'\033[38;5;34m')${DIM}"
         else
             ORG_INFO="\$$(( OV_USED / 100 ))/mo"
         fi
