@@ -152,14 +152,14 @@ get_ctx_charge_color() {
 }
 
 # Pace arrow: used% vs elapsed% of the window.
-# Double arrow = strong signal, single = mild.
-#   ⇈  ratio < 0.5   way under pace (limit will go unused)
-#   ↑  0.5 - 0.8     a bit under pace
-#   ↗  0.8 - 0.95    slightly under pace
-#   −  0.95 - 1.05   on pace
-#   ↘  1.05 - 1.2    slightly over pace
-#   ↓  1.2 - 1.5     a bit over pace
-#   ⇊  ratio > 1.5   slow down
+# More arrows = stronger signal.
+#   ⤊  ratio < 0.3   far under pace (limit will go unused)
+#   ⇈  0.3 - 0.6     way under pace
+#   ↑  0.6 - 0.9     a bit under pace
+#   −  0.9 - 1.1     on pace
+#   ↓  1.1 - 1.5     a bit over pace
+#   ⇊  1.5 - 2.0     way over pace
+#   ⤋  ratio > 2.0   slow down now
 get_pace_arrow() {
     local used_pct=$1 elapsed_pct=$2 ok_color=${3:-$'\033[38;5;245m'}
     # Unknown window position, or too early in the window for a stable ratio
@@ -168,20 +168,20 @@ get_pace_arrow() {
         return
     fi
     local ratio=$(( used_pct * 100 / elapsed_pct ))
-    if [ $ratio -lt 50 ]; then
+    if [ $ratio -lt 30 ]; then
+        echo $'\033[38;5;46m⤊'
+    elif [ $ratio -lt 60 ]; then
         echo $'\033[38;5;40m⇈'
-    elif [ $ratio -lt 80 ]; then
+    elif [ $ratio -lt 90 ]; then
         echo $'\033[38;5;76m↑'
-    elif [ $ratio -lt 95 ]; then
-        echo $'\033[38;5;112m↗'
-    elif [ $ratio -le 105 ]; then
+    elif [ $ratio -le 110 ]; then
         echo "${ok_color}−"
-    elif [ $ratio -le 120 ]; then
-        echo $'\033[38;5;220m↘'
     elif [ $ratio -le 150 ]; then
         echo $'\033[38;5;208m↓'
+    elif [ $ratio -le 200 ]; then
+        echo $'\033[38;5;202m⇊'
     else
-        echo $'\033[38;5;196m⇊'
+        echo $'\033[38;5;196m⤋'
     fi
 }
 
