@@ -15,7 +15,7 @@ Real-time Claude API usage tracking for Claude Code's statusline: battery-style 
 ## Features
 
 - **Battery-style Gauges** - the 5-hour and weekly limits show what's *left*: full and green at the start of a window, draining to empty and red as you spend it
-- **Pace Arrows** - arrows (⇈ ↑ − ↓ ⇊) compare your usage rate against elapsed window time, so you know whether to slow down or you can go all in
+- **Pace Arrows** - arrows (⤊ ⇈ ↑ − ↓ ⇊ ⤋) compare your usage rate against elapsed window time, so you know whether to slow down or you can go all in
 - **Weekly Limit** - remaining charge plus the exact reset day and time
 - **Context Window Monitor** - free context left, teal draining to purple
 - **Reset Countdown** - Know exactly when your 5-hour window resets
@@ -94,9 +94,11 @@ Enterprise orgs have no 5h/7d rate windows — usage is billed as spend. The sta
 
 | Component | Description |
 |-----------|-------------|
-| $ | Personal extra-usage credits: remaining charge, spent/limit dollars |
-| org | Org-wide spend (dimmed, informational): live monthly overage spend (from `overage_spend_limit`, with `/limit` when the org has a monthly cap), then the contract credit pool with its reset date |
+| $ | Personal extra-usage credits: remaining charge, pace arrow, spent/limit dollars |
+| org | Org-wide spend (dimmed, informational): live monthly overage spend (from `overage_spend_limit`, with `/limit` and a pace arrow when the org has a monthly cap), then the contract credit pool with its reset date |
 | C | Context window, same as the regular view |
+
+The window here is the calendar month (local time): the arrows compare the share of budget spent with the share of the month elapsed, same scale and night-hours rule as [Pace Arrows](#pace-arrows).
 
 Note: per-member spend breakdown exists in the API (`overage_spend_limits`) but requires the `billing:view` permission, so a regular seat only sees org-wide totals.
 
@@ -212,17 +214,21 @@ The gauges work like batteries: they show what's **left**, not what's used. A fr
 
 ### Pace Arrows
 
-The arrow after each limit compares how much you've spent against how much of the window has elapsed. Double arrow = strong signal, single = mild:
+The arrow after each limit compares how much you've spent against how much of the window has elapsed. More arrows = stronger signal:
 
 | Arrow | Spend rate vs elapsed time | Meaning |
 |-------|---------------------------|---------|
-| ⇈ (green) | < 0.5× | Way under pace — the window will reset with limit to spare |
-| ↑ (light green) | 0.5–0.8× | A bit under pace |
-| − (gray) | 0.8–1.2× | On pace |
-| ↓ (orange) | 1.2–1.5× | A bit over pace |
-| ⇊ (red) | > 1.5× | Slow down — you'll hit the limit before the reset |
+| ⤊ (bright green) | < 0.3× | Far under pace — most of the limit will go unused |
+| ⇈ (green) | 0.3–0.6× | Way under pace — the window will reset with limit to spare |
+| ↑ (light green) | 0.6–0.9× | A bit under pace |
+| − (gray) | 0.9–1.1× | On pace |
+| ↓ (orange) | 1.1–1.5× | A bit over pace |
+| ⇊ (red-orange) | 1.5–2.0× | Way over pace |
+| ⤋ (red) | > 2.0× | Slow down — you'll hit the limit well before the reset |
 
 During the first ~5% of a window the ratio is too noisy, so the arrow stays at `−`. The 7d arrow needs the fetcher v1.4+ (it adds minutes-until-weekly-reset to the output); with older cached data it gracefully shows `−`.
+
+By default night hours (00:00-09:00 local time) are excluded from the elapsed time, so sleeping doesn't turn the arrows red. Set `STATUSLINE_PACE_SKIP_NIGHT=0` to count the whole window.
 
 ## Color Coding
 
@@ -293,6 +299,7 @@ All configuration is stored in `$CLAUDE_CONFIG_DIR` (default: `~/.claude`):
 
 Environment variables:
 - `CLAUDE_CONFIG_DIR` - Override config directory (default: `~/.claude`)
+- `STATUSLINE_PACE_SKIP_NIGHT` - `1` (default) ignores 00:00-09:00 local time in the pace arrows, `0` counts the whole window
 
 ## Building from Source
 

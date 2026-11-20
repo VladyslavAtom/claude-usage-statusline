@@ -152,30 +152,36 @@ get_ctx_charge_color() {
 }
 
 # Pace arrow: used% vs elapsed% of the window.
-# Double arrow = strong signal, single = mild.
-#   ⇈  ratio < 0.5   way under pace (limit will go unused)
-#   ↑  0.5 - 0.8     a bit under pace
-#   −  0.8 - 1.2     on pace
-#   ↓  1.2 - 1.5     a bit over pace
-#   ⇊  ratio > 1.5   slow down
+# More arrows = stronger signal.
+#   ⤊  ratio < 0.3   far under pace (limit will go unused)
+#   ⇈  0.3 - 0.6     way under pace
+#   ↑  0.6 - 0.9     a bit under pace
+#   −  0.9 - 1.1     on pace
+#   ↓  1.1 - 1.5     a bit over pace
+#   ⇊  1.5 - 2.0     way over pace
+#   ⤋  ratio > 2.0   slow down now
 get_pace_arrow() {
-    local used_pct=$1 elapsed_pct=$2
+    local used_pct=$1 elapsed_pct=$2 ok_color=${3:-$'\033[38;5;245m'}
     # Unknown window position, or too early in the window for a stable ratio
     if [ "$elapsed_pct" -lt 5 ]; then
         echo $'\033[38;5;245m−'
         return
     fi
     local ratio=$(( used_pct * 100 / elapsed_pct ))
-    if [ $ratio -lt 50 ]; then
+    if [ $ratio -lt 30 ]; then
+        echo $'\033[38;5;46m⤊'
+    elif [ $ratio -lt 60 ]; then
         echo $'\033[38;5;40m⇈'
-    elif [ $ratio -lt 80 ]; then
+    elif [ $ratio -lt 90 ]; then
         echo $'\033[38;5;76m↑'
-    elif [ $ratio -le 120 ]; then
-        echo $'\033[38;5;245m−'
+    elif [ $ratio -le 110 ]; then
+        echo "${ok_color}−"
     elif [ $ratio -le 150 ]; then
         echo $'\033[38;5;208m↓'
+    elif [ $ratio -le 200 ]; then
+        echo $'\033[38;5;202m⇊'
     else
-        echo $'\033[38;5;196m⇊'
+        echo $'\033[38;5;196m⤋'
     fi
 }
 
@@ -213,6 +219,58 @@ gauge_char() {
     echo "${GAUGE_CHARS:$idx:1}"
 }
 
+# Pace ignores night hours (00:00-09:00 local) by default: you are asleep, so that
+# time should not make the arrows redder. Disable: STATUSLINE_PACE_SKIP_NIGHT=0.
+PACE_SKIP_NIGHT="${STATUSLINE_PACE_SKIP_NIGHT:-1}"
+NIGHT_END_HOUR=9
+
+# Seconds of night (00:00-NIGHT_END_HOUR local) inside [$1, $2] (epoch seconds).
+# DST shifts of an hour are ignored.
+night_secs_between() {
+    local s=$1 e=$2 now h m sec mid d ns ne lo hi total=0
+    now=$(date +%s)
+    read -r h m sec <<< "$(date '+%H %M %S')"
+    mid=$(( now - (10#$h * 3600 + 10#$m * 60 + 10#$sec) ))
+    for d in $(seq -8 8); do
+        ns=$(( mid + d * 86400 ))
+        ne=$(( ns + NIGHT_END_HOUR * 3600 ))
+        lo=$(( s > ns ? s : ns ))
+        hi=$(( e < ne ? e : ne ))
+        [ $hi -gt $lo ] && total=$(( total + hi - lo ))
+    done
+    echo $total
+}
+
+# Elapsed share (%) of a rate window; -1 = unknown. Args: window minutes, minutes remaining.
+window_elapsed_pct() {
+    local total_min=$1 rem=$2
+    if [ "$rem" -lt 0 ]; then echo -1; return; fi
+    local raw=$(( (total_min - rem) * 100 / total_min ))
+    if [ "$PACE_SKIP_NIGHT" != "1" ]; then echo $raw; return; fi
+    local now s e total el
+    now=$(date +%s)
+    s=$(( now - (total_min - rem) * 60 ))
+    e=$(( now + rem * 60 ))
+    total=$(( total_min * 60 - $(night_secs_between "$s" "$e") ))
+    el=$(( (now - s) - $(night_secs_between "$s" "$now") ))
+    if [ $total -le 0 ]; then echo $raw; else echo $(( el * 100 / total )); fi
+}
+
+# Minutes remaining in the current calendar month (local time) and the month length.
+# Sets MONTH_TOTAL_MIN and MONTH_REMAINING_MIN.
+month_window() {
+    local y mo d h mi sec dim
+    read -r y mo d h mi sec <<< "$(date '+%Y %m %d %H %M %S')"
+    y=$((10#$y)); mo=$((10#$mo))
+    case $mo in
+        1|3|5|7|8|10|12) dim=31 ;;
+        4|6|9|11) dim=30 ;;
+        *) if [ $(( y % 4 )) -eq 0 ] && { [ $(( y % 100 )) -ne 0 ] || [ $(( y % 400 )) -eq 0 ]; }; then dim=29; else dim=28; fi ;;
+    esac
+    MONTH_TOTAL_MIN=$(( dim * 1440 ))
+    MONTH_REMAINING_MIN=$(( MONTH_TOTAL_MIN - ((10#$d - 1) * 1440 + 10#$h * 60 + 10#$mi) ))
+}
+
 # Enterprise (spend-based) view: no 5h/7d windows — personal extra-usage
 # credits as the main battery, org-wide budget dimmed for reference
 if $ENTERPRISE; then
@@ -230,6 +288,10 @@ if $ENTERPRISE; then
     SPEND_LEFT=$(( 100 - SPEND_PCT ))
     SPEND_COLOR=$(get_charge_color "$SPEND_LEFT")
     SPEND_GAUGE=$(gauge_char "$SPEND_LEFT")
+    # Pace vs share of the calendar month elapsed
+    month_window
+    MONTH_ELAPSED=$(window_elapsed_pct "$MONTH_TOTAL_MIN" "$MONTH_REMAINING_MIN")
+    SPEND_PACE=$(get_pace_arrow "$SPEND_PCT" "$MONTH_ELAPSED" $'\033[38;5;34m')
     # spend amounts come in minor units (cents)
     SPEND_USED_USD=$(( SPEND_USED / 100 ))
     SPEND_LIMIT_USD=$(( SPEND_LIMIT / 100 ))
@@ -240,7 +302,7 @@ if $ENTERPRISE; then
     ORG_INFO=""
     if [ "$OV_USED" -ge 0 ]; then
         if [ "$OV_LIMIT" -gt 0 ]; then
-            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo"
+            ORG_INFO="\$$(( OV_USED / 100 ))/\$$(( OV_LIMIT / 100 ))·mo $(get_pace_arrow $(( OV_USED * 100 / OV_LIMIT )) "$MONTH_ELAPSED" $'\033[38;5;34m')${DIM}"
         else
             ORG_INFO="\$$(( OV_USED / 100 ))/mo"
         fi
@@ -252,7 +314,7 @@ if $ENTERPRISE; then
     CTX_COLOR=$(get_ctx_charge_color "$CTX_FREE")
     CTX_GAUGE=$(gauge_char "$CTX_FREE")
 
-    printf '%s\n' "${EFFORT_BARS:+${EFFORT_BARS}${RESET} }${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${DIM}\$${RESET} ${SPEND_COLOR}${SPEND_GAUGE} ${SPEND_LEFT}%${RESET} ${DIM}·\$${SPEND_USED_USD}/\$${SPEND_LIMIT_USD}${RESET} │ ${DIM}org ${ORG_INFO}${RESET} │ ${DIM}C${RESET} ${CTX_COLOR}${CTX_GAUGE} ${CTX_FREE}%${RESET}"
+    printf '%s\n' "${EFFORT_BARS:+${EFFORT_BARS}${RESET} }${MODEL}${FAST_ICON:+ ${FAST_ICON}}${RESET} │ ${DIM}\$${RESET} ${SPEND_COLOR}${SPEND_GAUGE} ${SPEND_LEFT}%${RESET} ${SPEND_PACE}${RESET} ${DIM}·\$${SPEND_USED_USD}/\$${SPEND_LIMIT_USD}${RESET} │ ${DIM}org ${ORG_INFO}${RESET} │ ${DIM}C${RESET} ${CTX_COLOR}${CTX_GAUGE} ${CTX_FREE}%${RESET}"
     exit 0
 fi
 
@@ -261,11 +323,9 @@ API_LEFT=$(( 100 - USAGE_PCT ))
 WEEK_LEFT=$(( 100 - WEEK_PCT ))
 CTX_FREE=$(( 100 - CONTEXT_PCT ))
 
-# Elapsed share of each rate window (5h = 300 min, 7d = 10080 min); -1 = unknown
-API_ELAPSED=-1
-[ "$MINUTES_REMAINING" -ge 0 ] && API_ELAPSED=$(( (300 - MINUTES_REMAINING) * 100 / 300 ))
-WEEK_ELAPSED=-1
-[ "$WEEK_MINUTES_REMAINING" -ge 0 ] && WEEK_ELAPSED=$(( (10080 - WEEK_MINUTES_REMAINING) * 100 / 10080 ))
+# Elapsed share of each rate window (5h = 300 min, 7d = 10080 min)
+API_ELAPSED=$(window_elapsed_pct 300 "$MINUTES_REMAINING")
+WEEK_ELAPSED=$(window_elapsed_pct 10080 "$WEEK_MINUTES_REMAINING")
 
 API_COLOR=$(get_charge_color "$API_LEFT")
 API_GAUGE=$(gauge_char "$API_LEFT")
