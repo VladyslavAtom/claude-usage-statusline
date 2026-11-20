@@ -15,7 +15,7 @@ Real-time Claude API usage tracking for Claude Code's statusline: battery-style 
 ## Features
 
 - **Battery-style Gauges** - the 5-hour and weekly limits show what's *left*: full and green at the start of a window, draining to empty and red as you spend it
-- **Pace Arrows** - arrows (⇈ ↑ − ↓ ⇊) compare your usage rate against elapsed window time, so you know whether to slow down or you can go all in
+- **Pace Arrows** - arrows (⇈ ↑ ↗ − ↘ ↓ ⇊) compare your usage rate against elapsed window time, so you know whether to slow down or you can go all in
 - **Weekly Limit** - remaining charge plus the exact reset day and time
 - **Context Window Monitor** - free context left, teal draining to purple
 - **Reset Countdown** - Know exactly when your 5-hour window resets
@@ -214,13 +214,15 @@ The gauges work like batteries: they show what's **left**, not what's used. A fr
 
 ### Pace Arrows
 
-The arrow after each limit compares how much you've spent against how much of the window has elapsed. Double arrow = strong signal, single = mild:
+The arrow after each limit compares how much you've spent against how much of the window has elapsed. Double arrow = strong signal, single = mild, diagonal = close to on pace:
 
 | Arrow | Spend rate vs elapsed time | Meaning |
 |-------|---------------------------|---------|
 | ⇈ (green) | < 0.5× | Way under pace — the window will reset with limit to spare |
 | ↑ (light green) | 0.5–0.8× | A bit under pace |
-| − (gray) | 0.8–1.2× | On pace |
+| ↗ (yellow-green) | 0.8–0.95× | Slightly under pace |
+| − (gray) | 0.95–1.05× | On pace |
+| ↘ (yellow) | 1.05–1.2× | Slightly over pace |
 | ↓ (orange) | 1.2–1.5× | A bit over pace |
 | ⇊ (red) | > 1.5× | Slow down — you'll hit the limit before the reset |
 

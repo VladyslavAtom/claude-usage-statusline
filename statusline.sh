@@ -155,7 +155,9 @@ get_ctx_charge_color() {
 # Double arrow = strong signal, single = mild.
 #   ⇈  ratio < 0.5   way under pace (limit will go unused)
 #   ↑  0.5 - 0.8     a bit under pace
-#   −  0.8 - 1.2     on pace
+#   ↗  0.8 - 0.95    slightly under pace
+#   −  0.95 - 1.05   on pace
+#   ↘  1.05 - 1.2    slightly over pace
 #   ↓  1.2 - 1.5     a bit over pace
 #   ⇊  ratio > 1.5   slow down
 get_pace_arrow() {
@@ -170,8 +172,12 @@ get_pace_arrow() {
         echo $'\033[38;5;40m⇈'
     elif [ $ratio -lt 80 ]; then
         echo $'\033[38;5;76m↑'
-    elif [ $ratio -le 120 ]; then
+    elif [ $ratio -lt 95 ]; then
+        echo $'\033[38;5;112m↗'
+    elif [ $ratio -le 105 ]; then
         echo "${ok_color}−"
+    elif [ $ratio -le 120 ]; then
+        echo $'\033[38;5;220m↘'
     elif [ $ratio -le 150 ]; then
         echo $'\033[38;5;208m↓'
     else
